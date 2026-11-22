@@ -217,10 +217,13 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("export", help="export logged samples as CSV")
     p.add_argument("config", help="path to tagscope.yaml")
     p.add_argument("--tags", nargs="*", help="tag names (default: all)")
-    p.add_argument("--minutes", type=float, default=60,
-                   help="export the last N minutes (default: 60, ignored when --since is given)")
-    p.add_argument("--since",
-                   help="start of the export window as ISO 8601, e.g. 2026-11-21T06:00 (naive = local time)")
+    p.add_argument(
+        "--minutes",
+        type=float,
+        default=60,
+        help="export the last N minutes (default: 60, ignored when --since is given)",
+    )
+    p.add_argument("--since", help="start of the export window as ISO 8601, e.g. 2026-11-21T06:00 (naive = local time)")
     p.add_argument("--until", help="end of the export window as ISO 8601 (default: now); naive = local time")
     p.add_argument("-o", "--output", help="output file (default: stdout)")
     p.set_defaults(func=_cmd_export)
