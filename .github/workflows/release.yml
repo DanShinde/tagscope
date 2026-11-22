@@ -1,10 +1,12 @@
 name: Release
 
-# Push a tag like v0.1.0 (or publish a GitHub release) to build, upload to PyPI
-# and create the GitHub release with the built files attached.
+# Run this workflow from the Actions tab ("Run workflow"), push a tag like v0.1.0,
+# or publish a GitHub release. It builds, uploads to PyPI and (for manual runs and
+# tags) creates the GitHub release vX.Y.Z with the built files attached.
 # PyPI side: a "trusted publisher" for this repository (workflow: release.yml,
 # environment: pypi). No API token needed.
 on:
+  workflow_dispatch:
   push:
     tags: ["v*"]
   release:
@@ -41,16 +43,21 @@ jobs:
 
   github-release:
     needs: pypi
-    if: github.event_name == 'push'
+    if: github.event_name != 'release'
     runs-on: ubuntu-latest
     permissions:
       contents: write
     steps:
+      - uses: actions/checkout@v4
+      - id: version
+        run: echo "tag=v$(grep -Po '(?<=__version__ = ")[^"]+' src/tagscope/__init__.py)" >> "$GITHUB_OUTPUT"
       - uses: actions/download-artifact@v4
         with:
           name: dist
           path: dist/
       - uses: softprops/action-gh-release@v2
         with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          target_commitish: ${{ github.sha }}
           files: dist/*
           generate_release_notes: true
