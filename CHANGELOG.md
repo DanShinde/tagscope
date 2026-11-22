@@ -7,6 +7,12 @@ All notable changes to this project are documented here. The format follows
 ## [Unreleased]
 
 ### Added
+- Modbus TCP data source: `protocol: modbus` servers with `unit_id` and `poll_interval_ms`,
+  tag nodes as `<table>:<address>:<type>` (`coil`/`discrete`/`input`/`holding`,
+  `bool`/`int16`/`uint16`/`int32`/`float32`), `watch_modbus` in the collector with the same
+  reconnect-with-back-off as OPC UA, and a `tagscope[modbus]` extra (pymodbus). Config parsing is
+  covered in `tests/test_config.py`, live polling against an in-process pymodbus server in
+  `tests/test_modbus.py`.
 - CONTRIBUTING.md and issue templates.
 
 ## [0.1.0] - 2026-11-22

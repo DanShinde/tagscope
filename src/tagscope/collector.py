@@ -106,6 +106,79 @@ async def watch_server(server: ServerConfig, hub: Hub, retry_max_s: float = 30.0
         delay = min(delay * 2, retry_max_s)
 
 
+async def _read_modbus_tag(client: Any, unit_id: int, spec: Any) -> Any:
+    """Read one Modbus tag described by a :class:`ModbusTagSpec`."""
+    if spec.table == "coil":
+        result = await client.read_coils(spec.address, count=1, device_id=unit_id)
+        if result.isError():
+            raise ConnectionError(f"coil {spec.address} read failed: {result}")
+        return bool(result.bits[0])
+    if spec.table == "discrete":
+        result = await client.read_discrete_inputs(spec.address, count=1, device_id=unit_id)
+        if result.isError():
+            raise ConnectionError(f"discrete {spec.address} read failed: {result}")
+        return bool(result.bits[0])
+    if spec.table == "input":
+        result = await client.read_input_registers(spec.address, count=spec.register_count, device_id=unit_id)
+    else:  # holding
+        result = await client.read_holding_registers(spec.address, count=spec.register_count, device_id=unit_id)
+    if result.isError():
+        raise ConnectionError(f"{spec.table} {spec.address} read failed: {result}")
+    registers = result.registers
+    if spec.type == "bool":
+        return bool(registers[0])
+    if spec.type == "int16":
+        return client.convert_from_registers(registers, data_type=client.DATATYPE.INT16)
+    if spec.type == "uint16":
+        return client.convert_from_registers(registers, data_type=client.DATATYPE.UINT16)
+    if spec.type == "int32":
+        return client.convert_from_registers(registers, data_type=client.DATATYPE.INT32)
+    return client.convert_from_registers(registers, data_type=client.DATATYPE.FLOAT32)
+
+
+async def watch_modbus(server: ServerConfig, hub: Hub, retry_max_s: float = 30.0) -> None:
+    """Poll every tag of a Modbus TCP server and keep reconnecting forever.
+
+    Mirrors :func:`watch_server`: the same status reporting, quality marking
+    and exponential back-off, so the dashboard and storage see one pipeline.
+    """
+    from pymodbus.client import AsyncModbusTcpClient
+
+    host, _, port_text = server.endpoint.removeprefix("modbus://").partition(":")
+    port = int(port_text) if port_text else 502
+    delay = 1.0
+    while True:
+        client: Any = None
+        try:
+            hub.set_server_status(server.name, "connecting")
+            client = AsyncModbusTcpClient(host, port=port)
+            if not await client.connect():
+                raise ConnectionError(f"cannot connect to {host}:{port}")
+            hub.set_server_status(server.name, "connected")
+            delay = 1.0
+            while True:
+                for tag in server.tags:
+                    if tag.modbus is None:
+                        continue
+                    value = await _read_modbus_tag(client, server.unit_id, tag.modbus)
+                    hub.update(tag.name, value, time.time(), GOOD)
+                await asyncio.sleep(server.poll_interval_ms / 1000)
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:  # noqa: BLE001 - any failure means "reconnect"
+            msg = str(exc) or exc.__class__.__name__
+            log.warning("%s: %s, retrying in %.0fs", server.name, msg, delay)
+            hub.set_server_status(server.name, "disconnected", msg[:200])
+            for tag in server.tags:
+                if tag.name in hub.values:
+                    hub.values[tag.name]["quality"] = BAD
+        finally:
+            if client is not None:
+                client.close()
+        await asyncio.sleep(delay)
+        delay = min(delay * 2, retry_max_s)
+
+
 async def writer_loop(hub: Hub, storage: Storage, config: Config) -> None:
     """Flush buffered samples and events to the database periodically."""
     last_purge = 0.0
