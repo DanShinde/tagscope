@@ -95,7 +95,8 @@ More in [`examples/`](examples), including a Siemens S7-1500 setup and PostgreSQ
 | `tagscope run CONFIG` | Log the servers and tags in a YAML file and serve the dashboard |
 | `tagscope init [PATH]` | Write an example config |
 | `tagscope browse ENDPOINT [NODE]` | List the nodes of a server, with current values |
-| `tagscope export CONFIG --minutes 60 -o out.csv` | Export logged samples |
+| `tagscope export CONFIG --minutes 60 -o out.csv` | Export the last 60 minutes of samples |
+| `tagscope export CONFIG --since 2026-11-21T06:00 --until 2026-11-21T14:00 -o shift.csv` | Export a fixed window (ISO 8601; naive times are local, `--until` defaults to now, `--since` overrides `--minutes`) |
 
 ## Data model
 
