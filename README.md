@@ -158,7 +158,7 @@ Charts use [uPlot](https://github.com/leeoniya/uPlot) (MIT), bundled for offline
 - MQTT / Sparkplug B output
 - Desktop build (single executable for Windows engineering laptops)
 
-Ideas and pull requests are welcome, see the [issues](https://github.com/DanShinde/tagscope/issues).
+Ideas and pull requests are welcome: see [CONTRIBUTING.md](CONTRIBUTING.md) and the [good first issues](https://github.com/DanShinde/tagscope/labels/good%20first%20issue).
 
 ## License
 

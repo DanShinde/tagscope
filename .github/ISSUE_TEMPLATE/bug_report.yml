@@ -1,0 +1,30 @@
+name: Bug report
+description: Something does not work as expected
+labels: [bug]
+body:
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened?
+      description: What did you do, what did you expect, and what happened instead?
+    validations:
+      required: true
+  - type: textarea
+    id: config
+    attributes:
+      label: Config and server
+      description: The relevant part of tagscope.yaml (remove passwords) and the OPC UA server / PLC model.
+      render: yaml
+  - type: input
+    id: version
+    attributes:
+      label: Versions
+      placeholder: tagscope 0.1.0, Python 3.12, Windows 11
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs
+      description: Output of `tagscope -v run ...`
+      render: text
