@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>TagScope</title>
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23121a23'/%3E%3Cpath d='M5 18h5l3-8 5 14 3-9 2 3h4' fill='none' stroke='%2338d9b0' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E">
+  <link rel="stylesheet" href="/static/vendor/uPlot.min.css">
+  <link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><rect width="32" height="32" rx="8" class="brand-bg"/><path d="M5 18h5l3-8 5 14 3-9 2 3h4" class="brand-line"/></svg>
+      <span>Tag<b>Scope</b></span>
+    </div>
+    <div id="servers" class="servers" aria-label="Servers"></div>
+    <div class="topbar-right">
+      <div class="stat" title="Samples written to the database"><span id="stat-samples">0</span><small>samples</small></div>
+      <div class="stat" title="Samples per second"><span id="stat-rate">0</span><small>/s</small></div>
+      <div class="stat clock"><span id="clock">--:--:--</span></div>
+      <button id="theme" class="icon-btn" title="Toggle light / dark" aria-label="Toggle theme">
+        <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </div>
+  </header>
+
+  <div class="layout">
+    <aside class="sidebar">
+      <div class="search">
+        <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="search" type="search" placeholder="Filter tags…  ( / )" autocomplete="off">
+      </div>
+      <div id="taglist" class="taglist" role="list"></div>
+      <button id="open-browser" class="ghost-btn wide">
+        <svg viewBox="0 0 24 24"><path d="M3 7h6l2 2h10v10H3z"/></svg> Browse server
+      </button>
+    </aside>
+
+    <main class="main">
+      <section id="cards" class="cards" aria-label="Key values"></section>
+
+      <section class="panel trend">
+        <div class="panel-head">
+          <h2>Trend <span id="trend-sub" class="muted"></span></h2>
+          <div class="panel-tools">
+            <div id="ranges" class="segmented" role="tablist">
+              <button data-min="5">5m</button><button data-min="15" class="on">15m</button><button data-min="60">1h</button><button data-min="360">6h</button><button data-min="1440">24h</button>
+            </div>
+            <button id="live" class="pill live on" title="Follow live data"><i></i>Live</button>
+            <button id="export" class="ghost-btn" title="Download the selected tags as CSV">
+              <svg viewBox="0 0 24 24"><path d="M12 4v11m0 0-4-4m4 4 4-4M5 20h14"/></svg> CSV
+            </button>
+          </div>
+        </div>
+        <div id="legend" class="legend"></div>
+        <div id="chart" class="chart"></div>
+        <p class="hint">Drag to zoom · double-click to reset · click tags on the left to add or remove them</p>
+      </section>
+
+      <section class="panel events">
+        <div class="panel-head">
+          <h2>Events <span id="alarm-count" class="badge hidden">0</span></h2>
+          <div class="segmented small" id="event-filter">
+            <button data-kind="" class="on">All</button><button data-kind="alarm">Alarms</button><button data-kind="system">System</button>
+          </div>
+        </div>
+        <ol id="events" class="eventlist"></ol>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="browser" class="browser">
+    <div class="panel-head">
+      <h2>Address space <span id="browser-server" class="muted"></span></h2>
+      <button class="icon-btn" id="close-browser" aria-label="Close">✕</button>
+    </div>
+    <ul id="tree" class="tree"></ul>
+    <p class="hint">Copy a node id into your <code>tagscope.yaml</code> to start logging it.</p>
+  </dialog>
+
+  <div id="toast" class="toast" role="status"></div>
+
+  <script src="/static/vendor/uPlot.iife.min.js"></script>
+  <script src="/static/app.js"></script>
+</body>
+</html>

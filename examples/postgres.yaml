@@ -1,0 +1,15 @@
+# Store samples in PostgreSQL (or TimescaleDB). Install the extra first:
+#   pip install "tagscope[postgres]"
+storage: postgresql+psycopg://tagscope:${DB_PASSWORD}@localhost:5432/tagscope
+retention_days: 365
+
+servers:
+  - name: prosys-sim
+    endpoint: opc.tcp://localhost:53530/OPCUA/SimulationServer
+    tags:
+      - name: Counter
+        node: ns=3;i=1001
+      - name: Sinusoid
+        node: ns=3;i=1004
+        low: -1.5
+        high: 1.5

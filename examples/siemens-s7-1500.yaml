@@ -1,0 +1,33 @@
+# Logging a Siemens S7-1500 with the built-in OPC UA server enabled
+# (TIA Portal: PLC properties > OPC UA > Server > Activate OPC UA server).
+# Data blocks must have "Accessible from HMI/OPC UA" ticked.
+storage: sqlite:///line1.db
+retention_days: 90
+
+web:
+  host: 0.0.0.0        # reachable from other PCs on the network
+  port: 8000
+
+servers:
+  - name: line1-plc
+    endpoint: opc.tcp://192.168.0.1:4840
+    username: ${PLC_USER:-}
+    password: ${PLC_PASSWORD:-}
+    publishing_interval_ms: 500
+    tags:
+      - name: Mixer/Speed
+        node: ns=3;s="DB_Mixer"."Speed"
+        unit: rpm
+        high: 1450
+        deadband: 2
+      - name: Mixer/Temperature
+        node: ns=3;s="DB_Mixer"."Temperature"
+        unit: °C
+        low: 20
+        high: 85
+        deadband: 0.1
+      - name: Mixer/Running
+        node: ns=3;s="DB_Mixer"."Running"
+      - name: Line/GoodCount
+        node: ns=3;s="DB_Counters"."Good"
+        unit: pcs
