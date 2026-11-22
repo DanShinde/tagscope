@@ -65,3 +65,102 @@ def test_invalid_yaml(tmp_path):
     path.write_text("servers: [", encoding="utf-8")
     with pytest.raises(ConfigError, match="invalid YAML"):
         load_config(path)
+
+
+def test_modbus_server_config_parses():
+    cfg = parse_config(
+        {
+            "servers": [
+                {
+                    "name": "power-meter",
+                    "protocol": "modbus",
+                    "endpoint": "modbus://192.168.0.50:502",
+                    "unit_id": 1,
+                    "poll_interval_ms": 1000,
+                    "tags": [
+                        {"name": "Line/PowerKw", "node": "holding:0:float32", "unit": "kW", "high": 75},
+                        {"name": "Breaker/Closed", "node": "coil:0:bool"},
+                    ],
+                }
+            ]
+        }
+    )
+    server = cfg.servers[0]
+    assert server.protocol == "modbus"
+    assert server.unit_id == 1
+    assert server.poll_interval_ms == 1000
+    power = server.tags[0].modbus
+    assert power is not None
+    assert (power.table, power.address, power.type) == ("holding", 0, "float32")
+    assert power.register_count == 2
+    coil = server.tags[1].modbus
+    assert coil is not None and coil.register_count == 1
+
+
+def test_opcua_server_defaults_and_no_modbus_spec():
+    cfg = parse_config({"servers": [{"endpoint": "opc.tcp://x:4840", "tags": ["ns=2;s=A"]}]})
+    server = cfg.servers[0]
+    assert server.protocol == "opcua"
+    assert server.unit_id == 1
+    assert server.poll_interval_ms == 1000
+    assert server.tags[0].modbus is None
+
+
+@pytest.mark.parametrize(
+    "data, message",
+    [
+        ({"protocol": "s7"}, "unknown protocol"),
+        ({"protocol": "modbus", "endpoint": "opc.tcp://x:4840"}, "must start with modbus://"),
+        ({"protocol": "modbus", "endpoint": "modbus://x:502", "unit_id": 256}, "unit_id"),
+        ({"protocol": "modbus", "endpoint": "modbus://x:502", "unit_id": -1}, "unit_id"),
+        ({"protocol": "modbus", "endpoint": "modbus://x:502", "poll_interval_ms": 0}, "poll_interval_ms"),
+        (
+            {"protocol": "modbus", "endpoint": "modbus://x:502", "tags": [{"node": "holding:1"}]},
+            "<table>:<address>:<type>",
+        ),
+        (
+            {"protocol": "modbus", "endpoint": "modbus://x:502", "tags": [{"node": "holding:1:float32:extra"}]},
+            "<table>:<address>:<type>",
+        ),
+        (
+            {"protocol": "modbus", "endpoint": "modbus://x:502", "tags": [{"node": "queue:1:bool"}]},
+            "unknown Modbus table",
+        ),
+        (
+            {"protocol": "modbus", "endpoint": "modbus://x:502", "tags": [{"node": "holding:1:string"}]},
+            "unknown Modbus type",
+        ),
+        (
+            {"protocol": "modbus", "endpoint": "modbus://x:502", "tags": [{"node": "holding:x:bool"}]},
+            "must be a number",
+        ),
+        ({"protocol": "modbus", "endpoint": "modbus://x:502", "tags": [{"node": "holding:-1:bool"}]}, "must be >= 0"),
+    ],
+    ids=[
+        "protocol",
+        "endpoint-scheme",
+        "unit-too-big",
+        "unit-negative",
+        "poll-zero",
+        "two-parts",
+        "four-parts",
+        "bad-table",
+        "bad-type",
+        "addr-nan",
+        "addr-negative",
+    ],
+)
+def test_invalid_modbus_configs(data, message):
+    server = {"protocol": "modbus", "endpoint": "modbus://x:502", "tags": [{"node": "holding:1:bool"}]}
+    server.update(data)
+    with pytest.raises(ConfigError, match=message):
+        parse_config({"servers": [server]})
+
+
+def test_parse_modbus_node_directly():
+    from tagscope.config import parse_modbus_node
+
+    spec = parse_modbus_node("input:2:float32", "t")
+    assert (spec.table, spec.address, spec.type, spec.register_count) == ("input", 2, "float32", 2)
+    with pytest.raises(ConfigError, match="unknown Modbus table"):
+        parse_modbus_node("nope:1:bool", "t")

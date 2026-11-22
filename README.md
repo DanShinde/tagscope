@@ -81,6 +81,30 @@ servers:
       - ns=3;s="DB_Counters"."Good"   # short form: the node id is the name
 ```
 
+### Modbus TCP devices
+
+Power meters, VFDs and older PLCs often only speak Modbus TCP. Set `protocol: modbus` and point
+`endpoint` at `modbus://host:port`; tags then use `<table>:<address>:<type>` node strings
+(`coil`, `discrete`, `input`, `holding` tables; `bool`, `int16`, `uint16`, `int32`, `float32`
+types). Addresses are **0-based PDU offsets**: `40001` in a device manual is offset `0`, so
+write `holding:0:float32`, not `holding:40001:float32`. Install the extra with `pip install "tagscope[modbus]"`:
+
+```yaml
+servers:
+  - name: power-meter
+    protocol: modbus            # default: opcua
+    endpoint: modbus://192.168.0.50:502
+    unit_id: 1
+    poll_interval_ms: 1000
+    tags:
+      - name: Line/PowerKw
+        node: holding:0:float32
+        unit: kW
+        high: 75
+      - name: Breaker/Closed
+        node: coil:0:bool
+```
+
 More in [`examples/`](examples), including a Siemens S7-1500 setup and PostgreSQL.
 
 > **Siemens tip:** enable the OPC UA server in the PLC properties in TIA Portal and tick

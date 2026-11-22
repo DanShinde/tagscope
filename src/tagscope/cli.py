@@ -56,7 +56,7 @@ async def serve(config: Config, *, simulate: bool = False, open_browser: bool = 
     """Run the collector, the database writer and the web server together."""
     import uvicorn
 
-    from .collector import watch_server, writer_loop
+    from .collector import watch_modbus, watch_server, writer_loop
     from .hub import Hub
     from .simulator import run_simulator
     from .storage import Storage
@@ -75,7 +75,9 @@ async def serve(config: Config, *, simulate: bool = False, open_browser: bool = 
         await asyncio.wait_for(ready.wait(), 15)
     hub = Hub(config)
     tasks.append(asyncio.create_task(writer_loop(hub, storage, config)))
-    tasks += [asyncio.create_task(watch_server(s, hub)) for s in config.servers]
+    for s in config.servers:
+        watcher = watch_modbus if s.protocol == "modbus" else watch_server
+        tasks.append(asyncio.create_task(watcher(s, hub)))
 
     app = create_app(hub, storage)
     uv_config = uvicorn.Config(app, host=config.web.host, port=config.web.port, log_level="warning")
