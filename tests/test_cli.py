@@ -77,17 +77,31 @@ def test_export_since_alone_runs_until_now_and_ignores_minutes(tmp_path):
 
 
 def test_export_accepts_date_only_and_naive_local_time(tmp_path):
-    from tagscope.cli import _export_window, _parse_iso8601
-
-    cfg = _export_db(tmp_path, [2000.0])
-    rows = _export_rows(cfg, tmp_path, "--since", "1970-01-01", "--until", "1970-01-02T00:00:00+00:00")
-    assert [r["epoch_s"] for r in rows] == ["2000.000"]
-    naive = _parse_iso8601("1970-01-01T01:00")
     import datetime as dt
 
-    assert naive == dt.datetime.fromisoformat("1970-01-01T01:00").astimezone().timestamp()
+    from tagscope.cli import _export_window, _parse_iso8601
+
+    # Use 2026 timestamps: 1970-era local times break on Windows (astimezone()
+    # raises OSError for pre-1970) and are timezone-fragile west of UTC.
+    row = dt.datetime(2026, 11, 21, 18, 0, tzinfo=dt.timezone.utc).timestamp()
+    cfg = _export_db(tmp_path, [row])
+    rows = _export_rows(cfg, tmp_path, "--since", "2026-11-21", "--until", "2026-11-23T00:00:00+00:00")
+    assert [r["epoch_s"] for r in rows] == [f"{row:.3f}"]
+    naive = _parse_iso8601("2026-11-21T06:00")
+    assert naive == dt.datetime.fromisoformat("2026-11-21T06:00").astimezone().timestamp()
     end = _export_window(build_parser().parse_args(["export", "x", "--minutes", "60"]))
     assert end[1] - end[0] == 60 * 60
+
+
+def test_export_pre_epoch_date_is_a_clean_error_not_a_traceback():
+    # On Windows, astimezone() on a pre-1970 local time raises OSError; the
+    # CLI must turn that into the friendly "cannot parse" ValueError (exit 2).
+    from tagscope.cli import _parse_iso8601
+
+    try:
+        _parse_iso8601("1970-01-01")
+    except ValueError as e:
+        assert "cannot parse" in str(e)
 
 
 def test_export_rejects_since_after_until(tmp_path, capsys):

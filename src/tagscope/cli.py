@@ -148,9 +148,15 @@ def _parse_iso8601(value: str) -> float:
         parsed = datetime.fromisoformat(value)
     except ValueError:
         raise ValueError(f"cannot parse {value!r} as an ISO 8601 timestamp (e.g. 2026-11-21T06:00)") from None
-    if parsed.tzinfo is None:
-        parsed = parsed.astimezone()
-    return parsed.timestamp()
+    try:
+        if parsed.tzinfo is None:
+            parsed = parsed.astimezone()
+        return parsed.timestamp()
+    except (OSError, OverflowError):
+        # Windows raises OSError for pre-1970 local times (OverflowError for
+        # out-of-range ones); surface the same friendly error as a parse failure
+        # instead of a traceback.
+        raise ValueError(f"cannot parse {value!r} as an ISO 8601 timestamp on this platform (e.g. 2026-11-21T06:00)") from None
 
 
 def _export_window(args: argparse.Namespace) -> tuple[float, float]:
