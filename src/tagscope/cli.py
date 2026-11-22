@@ -9,6 +9,7 @@ import logging
 import sys
 import time
 import webbrowser
+from datetime import datetime
 from pathlib import Path
 
 from . import __version__
@@ -141,15 +142,39 @@ def _cmd_browse(args: argparse.Namespace) -> int:
     return 0
 
 
+def _parse_iso8601(value: str) -> float:
+    """Parse an ISO 8601 timestamp into epoch seconds; naive values are local time."""
+    try:
+        parsed = datetime.fromisoformat(value)
+    except ValueError:
+        raise ValueError(f"cannot parse {value!r} as an ISO 8601 timestamp (e.g. 2026-11-21T06:00)") from None
+    if parsed.tzinfo is None:
+        parsed = parsed.astimezone()
+    return parsed.timestamp()
+
+
+def _export_window(args: argparse.Namespace) -> tuple[float, float]:
+    """Resolve the export time window: --since/--until, else the last --minutes."""
+    end = _parse_iso8601(args.until) if args.until else time.time()
+    start = _parse_iso8601(args.since) if args.since else end - args.minutes * 60
+    if start > end:
+        raise ValueError(f"--since ({args.since}) is after --until ({args.until or 'now'})")
+    return start, end
+
+
 def _cmd_export(args: argparse.Namespace) -> int:
     from .storage import Storage
 
     config = load_config(args.config)
+    try:
+        start, end = _export_window(args)
+    except ValueError as exc:
+        print(f"export error: {exc}", file=sys.stderr)
+        return 2
     storage = Storage(config.storage)
-    end = time.time()
     with contextlib.ExitStack() as stack:
         out = stack.enter_context(open(args.output, "w", encoding="utf-8", newline="")) if args.output else sys.stdout
-        for chunk in storage.export_csv(args.tags or None, end - args.minutes * 60, end):
+        for chunk in storage.export_csv(args.tags or None, start, end):
             out.write(chunk)
     storage.close()
     return 0
@@ -192,7 +217,11 @@ def build_parser() -> argparse.ArgumentParser:
     p = sub.add_parser("export", help="export logged samples as CSV")
     p.add_argument("config", help="path to tagscope.yaml")
     p.add_argument("--tags", nargs="*", help="tag names (default: all)")
-    p.add_argument("--minutes", type=float, default=60)
+    p.add_argument("--minutes", type=float, default=60,
+                   help="export the last N minutes (default: 60, ignored when --since is given)")
+    p.add_argument("--since",
+                   help="start of the export window as ISO 8601, e.g. 2026-11-21T06:00 (naive = local time)")
+    p.add_argument("--until", help="end of the export window as ISO 8601 (default: now); naive = local time")
     p.add_argument("-o", "--output", help="output file (default: stdout)")
     p.set_defaults(func=_cmd_export)
     return parser

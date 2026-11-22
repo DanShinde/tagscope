@@ -8,6 +8,7 @@ All notable changes to this project are documented here. The format follows
 
 ### Added
 - CONTRIBUTING.md and issue templates.
+- `tagscope export --since/--until` for exporting a fixed ISO 8601 window (naive times are local; `--until` defaults to now and `--since` overrides `--minutes`), with a clear error and exit code 2 for unparseable values or `--since` after `--until`.
 
 ## [0.1.0] - 2026-11-22
 

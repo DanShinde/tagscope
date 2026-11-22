@@ -1,3 +1,5 @@
+import csv
+
 import pytest
 
 from tagscope import __version__
@@ -32,6 +34,75 @@ def test_export_to_file(tmp_path):
     out = tmp_path / "out.csv"
     assert main(["export", str(cfg), "-o", str(out)]) == 0
     assert out.read_text(encoding="utf-8").startswith("timestamp_utc")
+
+
+def _export_db(tmp_path, samples):
+    """A config + database with one tag and samples at the given epoch timestamps."""
+    db = tmp_path / "t.db"
+    cfg = tmp_path / "c.yaml"
+    cfg.write_text(f"storage: sqlite:///{db}\nservers: []\n", encoding="utf-8")
+    from tagscope.config import TagConfig
+    from tagscope.storage import Sample, Storage
+
+    storage = Storage(f"sqlite:///{db}")
+    storage.sync_tags([TagConfig(name="level", node="ns=2;s=level")])
+    storage.write_samples([Sample("level", ts, float(ts)) for ts in samples])
+    storage.close()
+    return cfg
+
+
+def _export_rows(cfg, tmp_path, *extra):
+    out = tmp_path / "out.csv"
+    assert main(["export", str(cfg), "-o", str(out), *extra]) == 0
+    with out.open(encoding="utf-8") as fh:
+        return list(csv.DictReader(fh))
+
+
+def test_export_since_until_exports_only_the_window(tmp_path):
+    cfg = _export_db(tmp_path, [1000.0, 2000.0, 3000.0, 4000.0])
+    # 1800..3600 epoch = 1970-01-01T00:30:00Z .. 01:00:00Z
+    rows = _export_rows(cfg, tmp_path, "--since", "1970-01-01T00:30:00+00:00", "--until", "1970-01-01T01:00:00+00:00")
+    assert [r["epoch_s"] for r in rows] == ["2000.000", "3000.000"]
+
+
+def test_export_since_alone_runs_until_now_and_ignores_minutes(tmp_path):
+    cfg = _export_db(tmp_path, [1000.0, 2000.0])
+    # --minutes 0 would export nothing on its own; --since overrides it.
+    rows = _export_rows(cfg, tmp_path, "--since", "1970-01-01T00:00:00+00:00", "--minutes", "0")
+    assert [r["epoch_s"] for r in rows] == ["1000.000", "2000.000"]
+    # Without --since, --minutes 0 leaves an empty window around now.
+    out = tmp_path / "empty.csv"
+    assert main(["export", str(cfg), "-o", str(out), "--minutes", "0"]) == 0
+    assert list(csv.DictReader(out.open(encoding="utf-8"))) == []
+
+
+def test_export_accepts_date_only_and_naive_local_time(tmp_path):
+    from tagscope.cli import _export_window, _parse_iso8601
+
+    cfg = _export_db(tmp_path, [2000.0])
+    rows = _export_rows(cfg, tmp_path, "--since", "1970-01-01", "--until", "1970-01-02T00:00:00+00:00")
+    assert [r["epoch_s"] for r in rows] == ["2000.000"]
+    naive = _parse_iso8601("1970-01-01T01:00")
+    import datetime as dt
+
+    assert naive == dt.datetime.fromisoformat("1970-01-01T01:00").astimezone().timestamp()
+    end = _export_window(build_parser().parse_args(["export", "x", "--minutes", "60"]))
+    assert end[1] - end[0] == 60 * 60
+
+
+def test_export_rejects_since_after_until(tmp_path, capsys):
+    cfg = _export_db(tmp_path, [1000.0])
+    rc = main(["export", str(cfg), "--since", "1970-01-02T00:00:00+00:00", "--until", "1970-01-01T00:00:00+00:00"])
+    assert rc == 2
+    assert "after --until" in capsys.readouterr().err
+
+
+def test_export_rejects_unparseable_timestamps(tmp_path, capsys):
+    cfg = _export_db(tmp_path, [1000.0])
+    rc = main(["export", str(cfg), "--since", "yesterday-ish"])
+    assert rc == 2
+    err = capsys.readouterr().err
+    assert "cannot parse" in err and "yesterday-ish" in err
 
 
 def test_parser_has_all_commands():
