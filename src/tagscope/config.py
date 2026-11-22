@@ -37,11 +37,11 @@ class ModbusTagSpec:
 
 
 def parse_modbus_node(node: str, where: str) -> ModbusTagSpec:
-    """Parse and validate a Modbus node string such as ``holding:40001:float32``."""
+    """Parse and validate a Modbus node string such as ``holding:0:float32``."""
     parts = node.split(":")
     if len(parts) != 3:
         raise ConfigError(
-            f"{where}: Modbus node {node!r} must be <table>:<address>:<type>, e.g. 'holding:40001:float32'"
+            f"{where}: Modbus node {node!r} must be <table>:<address>:<type>, e.g. 'holding:0:float32'"
         )
     table, address_text, type_name = parts
     if table not in MODBUS_TABLES:

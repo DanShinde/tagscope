@@ -138,3 +138,22 @@ async def test_watch_modbus_reports_disconnected_when_the_server_is_down():
         task.cancel()
         with contextlib.suppress(asyncio.CancelledError):
             await task
+
+
+@pytest.mark.asyncio
+async def test_watch_modbus_without_pymodbus_reports_error_and_stops(monkeypatch):
+    """Without the modbus extra, watch_modbus must fail once with status 'error'
+    and a clear message — not reconnect forever inside the retry loop."""
+    import sys
+
+    from tagscope.storage import BAD
+
+    monkeypatch.setitem(sys.modules, "pymodbus", None)
+    monkeypatch.setitem(sys.modules, "pymodbus.client", None)
+    cfg = modbus_config(1)  # port unused: the import guard must fire first
+    hub = Hub(cfg)
+    hub.update("Line/PowerKw", 1.0, 0.0, GOOD)
+    await watch_modbus(cfg.servers[0], hub)
+    assert hub.servers["power-meter"]["status"] == "error"
+    assert "tagscope[modbus]" in hub.servers["power-meter"]["error"]
+    assert hub.values["Line/PowerKw"]["quality"] == BAD

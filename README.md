@@ -86,7 +86,8 @@ servers:
 Power meters, VFDs and older PLCs often only speak Modbus TCP. Set `protocol: modbus` and point
 `endpoint` at `modbus://host:port`; tags then use `<table>:<address>:<type>` node strings
 (`coil`, `discrete`, `input`, `holding` tables; `bool`, `int16`, `uint16`, `int32`, `float32`
-types). Install the extra with `pip install "tagscope[modbus]"`:
+types). Addresses are **0-based PDU offsets**: `40001` in a device manual is offset `0`, so
+write `holding:0:float32`, not `holding:40001:float32`. Install the extra with `pip install "tagscope[modbus]"`:
 
 ```yaml
 servers:
@@ -97,7 +98,7 @@ servers:
     poll_interval_ms: 1000
     tags:
       - name: Line/PowerKw
-        node: holding:40001:float32
+        node: holding:0:float32
         unit: kW
         high: 75
       - name: Breaker/Closed

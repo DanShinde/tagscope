@@ -78,7 +78,7 @@ def test_modbus_server_config_parses():
                     "unit_id": 1,
                     "poll_interval_ms": 1000,
                     "tags": [
-                        {"name": "Line/PowerKw", "node": "holding:40001:float32", "unit": "kW", "high": 75},
+                        {"name": "Line/PowerKw", "node": "holding:0:float32", "unit": "kW", "high": 75},
                         {"name": "Breaker/Closed", "node": "coil:0:bool"},
                     ],
                 }
@@ -91,7 +91,7 @@ def test_modbus_server_config_parses():
     assert server.poll_interval_ms == 1000
     power = server.tags[0].modbus
     assert power is not None
-    assert (power.table, power.address, power.type) == ("holding", 40001, "float32")
+    assert (power.table, power.address, power.type) == ("holding", 0, "float32")
     assert power.register_count == 2
     coil = server.tags[1].modbus
     assert coil is not None and coil.register_count == 1

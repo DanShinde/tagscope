@@ -142,7 +142,18 @@ async def watch_modbus(server: ServerConfig, hub: Hub, retry_max_s: float = 30.0
     Mirrors :func:`watch_server`: the same status reporting, quality marking
     and exponential back-off, so the dashboard and storage see one pipeline.
     """
-    from pymodbus.client import AsyncModbusTcpClient
+    try:
+        from pymodbus.client import AsyncModbusTcpClient
+    except ImportError:
+        # Missing extra: fail once with a clear message instead of reconnecting
+        # forever inside the retry loop.
+        msg = "pymodbus is not installed — install tagscope[modbus] for Modbus servers"
+        log.error("%s: %s", server.name, msg)
+        hub.set_server_status(server.name, "error", msg)
+        for tag in server.tags:
+            if tag.name in hub.values:
+                hub.values[tag.name]["quality"] = BAD
+        return
 
     host, _, port_text = server.endpoint.removeprefix("modbus://").partition(":")
     port = int(port_text) if port_text else 502
